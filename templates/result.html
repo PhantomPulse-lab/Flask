@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        .header, .footer {
+            background-color: #333;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+        .header h1, .footer p {
+            margin: 0;
+        }
+        .result-container {
+            margin: 50px auto;
+            width: 90%;
+            max-width: 800px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px 0px #888;
+        }
+        .sentiment-positive {
+            color: green;
+        }
+        .sentiment-negative {
+            color: red;
+        }
+        h1 {
+            color: #333;
+        }
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        table, th, td {
+            border: 1px solid #888;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        /* Add styles for tabs */
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #333;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>Sentiment Analysis Dashboard</h1>
+    </div>
+
+    <div class="result-container">
+        <h1>Sentiment Analysis Result</h1>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('sentiment')">Sentiment</div>
+            <div class="tab" onclick="showTab('entity-sentiments')">Entity Sentiments</div>
+            <div class="tab" onclick="showTab('individual-tweets')">Individual Tweets</div>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="tab-content active" id="sentiment">
+            <!-- Sentiment Chart -->
+            <canvas id="sentimentChart"></canvas>
+        </div>
+        <div class="tab-content" id="entity-sentiments">
+            <!-- Entity Sentiments Chart -->
+            {% if entity_sentiments_labels and entity_sentiments_data %}
+                <h2>Entity Sentiments</h2>
+                <canvas id="entitySentimentsChart"></canvas>
+            {% else %}
+                <p>No entity sentiment data available.</p>
+            {% endif %}
+        </div>
+        <div class="tab-content" id="individual-tweets">
+            <!-- Individual Tweet Analysis -->
+            <h2>Individual Tweet Analysis</h2>
+            <table>
+                <tr>
+                    <th>Tweet</th>
+                    <th>Sentiment</th>
+                </tr>
+                {% for item in sentiments %}
+                <tr>
+                    <td>{{ item['tweet'] }}</td>
+                    <td class="{{ 'sentiment-positive' if item['sentiment'] == 'Positive' else 'sentiment-negative' }}">{{ item['sentiment'] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        
+        <br>
+        <a href="/">Analyze another tweet</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>&copy; 2024 Tweet Sentiment Analysis</p>
+    </div>
+
+    <script>
+        // Function to show tab content
+        function showTab(tabId) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            // Add active class to the selected tab
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+        }
+        
+        // Chart.js configuration for sentiment chart
+        const sentimentChart = document.getElementById('sentimentChart').getContext('2d');
+        new Chart(sentimentChart, {
+            type: 'pie',
+            data: {
+                labels: ['Positive', 'Negative'],  // Removed Neutral
+                datasets: [{
+                    label: 'Sentiment Analysis',
+                    data: [{{ sentiment_data['Positive'] }}, {{ sentiment_data['Negative'] }}],  // Only Positive and Negative data
+                    backgroundColor: [
+                        'rgba(0, 128, 0, 0.5)',  // Green for Positive
+                        'rgba(255, 0, 0, 0.5)'   // Red for Negative
+                    ],
+                    borderColor: [
+                        'rgba(0, 128, 0, 1)',  // Green for Positive
+                        'rgba(255, 0, 0, 1)'   // Red for Negative
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                }
+            }
+        });
+        
+        // Chart.js configuration for entity sentiments chart (if data exists)
+        {% if entity_sentiments_labels and entity_sentiments_data %}
+        const entitySentimentsChart = document.getElementById('entitySentimentsChart').getContext('2d');
+        new Chart(entitySentimentsChart, {
+            type: 'bar',
+            data: {
+                labels: {{ entity_sentiments_labels | tojson }},
+                datasets: [{
+                    label: 'Entity Sentiments',
+                    data: {{ entity_sentiments_data | tojson }},
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                }
+            }
+        });
+        {% endif %}
+    </script>
+</body>
+</html>
